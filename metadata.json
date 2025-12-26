@@ -1,0 +1,5 @@
+{
+  "name": "Sentix: AI Market Pulse",
+  "description": "A sophisticated stock market sentiment analyzer that uses Gemini AI and Google Search grounding to evaluate real-time market moods, news impact, and investor behavior for any ticker symbol.",
+  "requestFramePermissions": []
+}
