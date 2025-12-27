@@ -2,33 +2,24 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { SentimentAnalysis, GroundingSource } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
-
 export async function analyzeSentiment(ticker: string): Promise<{ analysis: SentimentAnalysis, sources: GroundingSource[] }> {
-  const model = 'gemini-3-flash-preview';
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const model = 'gemini-3-pro-preview';
   
   const prompt = `Perform a deep market sentiment analysis for the Indian stock ticker: ${ticker}. 
   Focus specifically on data from the National Stock Exchange (NSE) and Bombay Stock Exchange (BSE).
   
   Use Google Search to find:
-  1. The VERY LATEST live or last closing price on NSE/BSE in INR.
+  1. The VERY LATEST live or last closing price on BOTH NSE and BSE in INR.
   2. The actual price change and percentage change for today's session.
-  3. Recent news from Indian financial portals (Moneycontrol, Economic Times, Livemint).
-  4. Institutional activity and key catalysts.
+  3. Recent news from Indian financial portals.
+  4. Estimate a sentiment distribution (percentages for Negative, Neutral, Positive) based on current news volume and tone.
   
   IMPORTANT: 
   - All financial values MUST be in Indian Rupees (INR/₹).
-  - Provide the actual current price found via search.
+  - Provide separate nsePrice and bsePrice.
   
-  You must provide:
-  1. A sentiment score between -1 and 1.
-  2. A summary of current market mood.
-  3. 3-4 key drivers and 2-3 risk factors.
-  4. A concise recommendation.
-  5. The REAL current price, price change, and percentage change.
-  6. The full company name as listed on NSE.
-
-  Return the final analysis in a structured format.`;
+  Return the final analysis in JSON format.`;
 
   const response = await ai.models.generateContent({
     model,
@@ -47,12 +38,21 @@ export async function analyzeSentiment(ticker: string): Promise<{ analysis: Sent
           keyDrivers: { type: Type.ARRAY, items: { type: Type.STRING } },
           riskFactors: { type: Type.ARRAY, items: { type: Type.STRING } },
           recommendation: { type: Type.STRING },
-          currentPrice: { type: Type.NUMBER },
+          nsePrice: { type: Type.NUMBER },
+          bsePrice: { type: Type.NUMBER },
           priceChange: { type: Type.NUMBER },
           priceChangePercent: { type: Type.NUMBER },
-          exchange: { type: Type.STRING },
+          sentimentDistribution: {
+            type: Type.OBJECT,
+            properties: {
+              negative: { type: Type.NUMBER },
+              neutral: { type: Type.NUMBER },
+              positive: { type: Type.NUMBER }
+            },
+            required: ["negative", "neutral", "positive"]
+          }
         },
-        required: ["ticker", "name", "score", "label", "summary", "keyDrivers", "riskFactors", "recommendation", "currentPrice", "priceChange", "priceChangePercent"]
+        required: ["ticker", "name", "score", "label", "summary", "keyDrivers", "riskFactors", "recommendation", "nsePrice", "bsePrice", "sentimentDistribution"]
       }
     }
   });

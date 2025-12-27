@@ -1,5 +1,5 @@
 {
-  "name": "Sentix: AI Market Pulse",
-  "description": "A sophisticated stock market sentiment analyzer that uses Gemini AI and Google Search grounding to evaluate real-time market moods, news impact, and investor behavior for any ticker symbol.",
+  "name": "Sentix India: AI Market Intelligence",
+  "description": "A powerful Indian stock market sentiment engine using Gemini 3 and Real-time Search Grounding for NSE/BSE intelligence.",
   "requestFramePermissions": []
 }

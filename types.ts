@@ -3,16 +3,22 @@ export interface SentimentAnalysis {
   ticker: string;
   name: string;
   score: number; // -1 to 1
-  label: 'Bullish' | 'Bearish' | 'Neutral' | 'Strongly Bullish' | 'Strongly Bearish';
+  label: string;
   summary: string;
   keyDrivers: string[];
   riskFactors: string[];
   recommendation: string;
   currentPrice?: number;
+  nsePrice?: number;
+  bsePrice?: number;
   priceChange?: number;
   priceChangePercent?: number;
   lastUpdated?: string;
-  exchange?: 'NSE' | 'BSE' | 'BOTH';
+  sentimentDistribution: {
+    negative: number;
+    neutral: number;
+    positive: number;
+  };
 }
 
 export interface GroundingSource {

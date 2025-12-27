@@ -4,23 +4,53 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sentix: AI Market Pulse</title>
+  <title>Sentix India: AI Market Intelligence</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
   <style>
     body {
       font-family: 'Inter', sans-serif;
-      background-color: #0f172a;
+      background-color: #020617;
       color: #f8fafc;
+      overflow-x: hidden;
     }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    
+    .glass-card {
+      background: rgba(15, 23, 42, 0.6);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(51, 65, 85, 0.5);
+    }
+    
+    @keyframes pulse-soft {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    .animate-pulse-soft { animation: pulse-soft 2s infinite; }
+    
+    .gauge-ring {
+      transition: stroke-dashoffset 1s ease-out;
+    }
+
+    /* Suggestion Dropdown Styles */
+    #suggestions-list {
+      max-height: 300px;
+      overflow-y: auto;
+      z-index: 100;
+      scrollbar-width: thin;
+      scrollbar-color: #334155 transparent;
+    }
+    #suggestions-list::-webkit-scrollbar { width: 4px; }
+    #suggestions-list::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
   </style>
-<script type="importmap">
+  <script type="importmap">
 {
   "imports": {
     "@google/genai": "https://esm.sh/@google/genai@^1.34.0",
     "lucide-react": "https://esm.sh/lucide-react@^0.562.0",
-    "react/": "https://esm.sh/react@^19.2.3/",
     "react": "https://esm.sh/react@^19.2.3",
+    "react/": "https://esm.sh/react@^19.2.3/",
     "recharts": "https://esm.sh/recharts@^3.6.0",
     "react-dom/": "https://esm.sh/react-dom@^19.2.3/"
   }
@@ -28,6 +58,130 @@
 </script>
 </head>
 <body>
-  <div id="root"></div>
+  <div id="app" class="min-h-screen flex flex-col">
+    <!-- Header -->
+    <header class="sticky top-0 z-50 bg-slate-950/80 backdrop-blur-md border-b border-slate-900">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-white"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+          </div>
+          <h1 class="text-xl font-black tracking-tight bg-gradient-to-r from-white to-slate-500 bg-clip-text text-transparent">
+            SENTIX INDIA
+          </h1>
+        </div>
+
+        <div class="flex-1 max-w-md mx-8 hidden sm:block relative">
+          <form id="search-form">
+            <div class="relative group">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+              <input
+                type="text"
+                id="ticker-input"
+                autocomplete="off"
+                placeholder="Search NSE/BSE (e.g. RELIANCE, TCS)..."
+                class="w-full bg-slate-900 border border-slate-800 rounded-full py-2 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all"
+              >
+            </div>
+          </form>
+          <!-- Suggestions Dropdown -->
+          <div id="suggestions-list" class="hidden absolute top-full left-0 right-0 mt-2 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-2">
+            <!-- Dynamic items here -->
+          </div>
+        </div>
+
+        <div id="market-badge" class="flex items-center gap-3">
+          <!-- Status injected here -->
+        </div>
+      </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full flex-1">
+      <!-- Quick Tickers -->
+      <div id="quick-tickers" class="flex gap-4 overflow-x-auto no-scrollbar pb-6">
+        <!-- Tickers injected here -->
+      </div>
+
+      <!-- Loading State -->
+      <div id="loading-overlay" class="hidden flex-col items-center justify-center py-32">
+        <div class="w-16 h-16 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin"></div>
+        <p class="mt-6 text-slate-400 font-bold uppercase tracking-widest text-xs animate-pulse">Scanning Dalal Street Intelligence...</p>
+      </div>
+
+      <!-- Error State -->
+      <div id="error-container" class="hidden bg-rose-500/10 border border-rose-500/20 rounded-3xl p-8 text-center max-w-md mx-auto my-12">
+        <h2 class="text-xl font-bold mb-2">Sync Error</h2>
+        <p id="error-message" class="text-slate-400 mb-6 text-sm"></p>
+        <button id="retry-btn" class="px-6 py-2 bg-rose-500 hover:bg-rose-600 text-white rounded-xl font-bold text-xs transition-colors">RETRY SYNC</button>
+      </div>
+
+      <!-- Dashboard Content -->
+      <div id="dashboard" class="hidden grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <!-- Main Column -->
+        <div class="lg:col-span-8 space-y-6">
+          <div class="glass-card rounded-[2.5rem] p-6 sm:p-8 relative overflow-hidden">
+            <div id="price-card-header" class="flex flex-col sm:flex-row justify-between gap-6 mb-8">
+              <!-- Ticker Info Injected Here -->
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+              <div id="gauge-container"></div>
+              <div id="stats-container" class="space-y-4"></div>
+            </div>
+
+            <div id="chart-container" class="h-[300px] w-full bg-slate-900/40 rounded-3xl border border-slate-800 p-4">
+              <!-- SVG Chart Injected Here -->
+            </div>
+          </div>
+
+          <!-- Deep Analysis -->
+          <div class="glass-card rounded-[2.5rem] p-6 sm:p-8">
+            <div class="flex items-center gap-3 mb-6">
+              <div class="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-indigo-400"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+              </div>
+              <h3 class="text-xl font-black">Strategic Pulse</h3>
+            </div>
+            <p id="analysis-summary" class="text-slate-300 leading-relaxed text-lg font-medium italic opacity-90"></p>
+          </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="lg:col-span-4 space-y-6">
+          <div class="glass-card rounded-[2.5rem] p-6 flex flex-col min-h-[400px]">
+            <h3 class="text-lg font-black mb-8 flex justify-between items-center">
+              Verified Sources
+              <span class="text-[9px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">LIVE GROUNDING</span>
+            </h3>
+            <div id="sources-list" class="space-y-3 flex-1"></div>
+            
+            <div id="market-schedule" class="mt-8 p-5 bg-indigo-500/5 border border-indigo-500/10 rounded-2xl">
+              <!-- Schedule Injected Here -->
+            </div>
+          </div>
+
+          <div class="p-6 bg-slate-900/30 border border-slate-800 rounded-[2rem]">
+            <p class="text-[10px] text-slate-600 font-bold uppercase tracking-widest leading-relaxed">
+              SENTIX uses real-time search grounding from Google Gemini. Values are indicative. Not financial advice.
+            </p>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <footer class="mt-auto border-t border-slate-900 py-12 bg-slate-950/50">
+      <div class="max-w-7xl mx-auto px-4 flex flex-col items-center">
+        <p class="text-slate-700 text-[10px] font-black uppercase tracking-[0.4em] mb-4">DALAL STREET INTELLIGENCE • v2.0</p>
+        <div class="flex gap-8">
+           <span class="text-[9px] font-black text-slate-800">RELIANCE</span>
+           <span class="text-[9px] font-black text-slate-800">TCS</span>
+           <span class="text-[9px] font-black text-slate-800">HDFC</span>
+           <span class="text-[9px] font-black text-slate-800">INFY</span>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <script type="module" src="index.tsx"></script>
 </body>
 </html>
