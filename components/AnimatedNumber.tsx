@@ -33,7 +33,6 @@ const AnimatedNumber: React.FC<AnimatedNumberProps> = ({
       const elapsed = currentTime - startTimeRef.current;
       const progress = Math.min(elapsed / duration, 1);
       
-      // Easing function: easeOutExpo
       const easedProgress = progress === 1 ? 1 : 1 - Math.pow(2, -10 * progress);
       
       const current = startValueRef.current + (value - startValueRef.current) * easedProgress;

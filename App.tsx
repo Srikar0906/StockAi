@@ -1,6 +1,6 @@
 
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { Search, TrendingUp, TrendingDown, Info, ExternalLink, AlertCircle, RefreshCw, BarChart3, Globe, Clock, ArrowUpRight, ArrowDownRight, Newspaper, History, X, ChevronRight, Star, Calendar, ArrowUp, ArrowDown } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { Search, ExternalLink, AlertCircle, RefreshCw, BarChart3, Newspaper, History, X, ChevronRight, Star, Calendar, ArrowUp, ArrowDown, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { analyzeSentiment } from './services/geminiService';
 import { SentimentAnalysis, GroundingSource, ChartData, MarketStatus } from './types';
 import StockChart from './components/StockChart';
@@ -71,11 +71,9 @@ const App: React.FC = () => {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [showHolidays, setShowHolidays] = useState(false);
   
-  // News filtering and sorting
   const [newsFilter, setNewsFilter] = useState('');
   const [newsSortOrder, setNewsSortOrder] = useState<'newest' | 'oldest'>('newest');
 
-  // Load persistence
   useEffect(() => {
     const savedRecent = localStorage.getItem('stocksense_recent_searches');
     if (savedRecent) {
@@ -122,11 +120,11 @@ const App: React.FC = () => {
     let currentPrice = basePrice * 0.99;
     const startTime = 9 * 60 + 15;
     const endTime = 15 * 60 + 30;
-    // Generate data every 5 minutes for better indicator calculations
+    
     for (let t = startTime; t <= endTime; t += 5) {
       const h = Math.floor(t / 60);
       const m = t % 60;
-      currentPrice += (Math.random() - 0.48) * (basePrice * 0.003); // Slight upward bias
+      currentPrice += (Math.random() - 0.48) * (basePrice * 0.003); 
       data.push({
         time: `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`,
         price: Number(currentPrice.toFixed(2)),
@@ -145,11 +143,9 @@ const App: React.FC = () => {
     setError(null);
     setShowSuggestions(false);
     
-    // Reset filters
     setNewsFilter('');
     setNewsSortOrder('newest');
     
-    // Normalize index names for better grounding
     const normalizedQuery = query === 'NIFTY 50' ? 'NIFTY' : query;
 
     try {
@@ -173,7 +169,6 @@ const App: React.FC = () => {
       const lower = newsFilter.toLowerCase();
       result = result.filter(s => s.title.toLowerCase().includes(lower));
     }
-    // Assuming API returns results in order of relevance/recency (newest first)
     if (newsSortOrder === 'oldest') {
       result.reverse();
     }
@@ -365,7 +360,7 @@ const App: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2 cursor-pointer group" onClick={goHome}>
             <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center group-hover:bg-indigo-500 transition-colors">
-              <BarChart3 className="text-white w-5 h-5" />
+                <BarChart3 className="text-white w-5 h-5" />
             </div>
             <h1 className="text-xl font-black tracking-tighter bg-gradient-to-r from-white to-slate-500 bg-clip-text text-transparent">
               STOCK SENSE

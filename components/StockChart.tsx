@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ComposedChart, Line, ReferenceLine, ReferenceArea, Legend } from 'recharts';
+import { Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ComposedChart, Line, ReferenceLine, ReferenceArea } from 'recharts';
 import { ChartData } from '../types';
 
 interface StockChartProps {
@@ -124,7 +124,7 @@ const StockChart: React.FC<StockChartProps> = ({ data, ticker }) => {
               tickLine={false} 
               tick={{ fill: '#64748b', fontSize: 10, fontWeight: 600 }}
               minTickGap={30}
-              hide={indicators.rsi} // hide X axis on main chart if RSI is visible
+              hide={indicators.rsi} 
             />
             <YAxis 
               domain={['auto', 'auto']} 
@@ -208,9 +208,7 @@ const StockChart: React.FC<StockChartProps> = ({ data, ticker }) => {
                 width={60}
                 ticks={[30, 70]}
               />
-              {/* Highlight Overbought Zone */}
               <ReferenceArea y1={70} y2={100} fill="#ef4444" fillOpacity={0.05} />
-              {/* Highlight Oversold Zone */}
               <ReferenceArea y1={0} y2={30} fill="#10b981" fillOpacity={0.05} />
               
               <ReferenceLine y={70} stroke="#ef4444" strokeDasharray="3 3" opacity={0.5} />

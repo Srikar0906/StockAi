@@ -8,7 +8,6 @@ export interface SentimentAnalysis {
   keyDrivers: string[];
   riskFactors: string[];
   recommendation: string;
-  currentPrice?: number;
   nsePrice?: number;
   bsePrice?: number;
   priceChange?: number;
