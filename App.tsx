@@ -1,11 +1,21 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { Search, TrendingUp, TrendingDown, Info, ExternalLink, AlertCircle, RefreshCw, BarChart3, Globe, Clock, ArrowUpRight, ArrowDownRight, Newspaper, History, X } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { Search, TrendingUp, TrendingDown, Info, ExternalLink, AlertCircle, RefreshCw, BarChart3, Globe, Clock, ArrowUpRight, ArrowDownRight, Newspaper, History, X, ChevronRight } from 'lucide-react';
 import { analyzeSentiment } from './services/geminiService';
 import { SentimentAnalysis, GroundingSource, ChartData, MarketStatus } from './types';
 import StockChart from './components/StockChart';
+import AnimatedNumber from './components/AnimatedNumber';
 
 const POPULAR_TICKERS = ['RELIANCE', 'TCS', 'HDFCBANK', 'INFY', 'ICICIBANK', 'SBIN', 'ADANIENT'];
+
+const SUGGESTED_TICKERS = [
+  "NIFTY 50", "SENSEX", "BANKNIFTY", "RELIANCE", "TCS", "HDFCBANK", "ICICIBANK", "INFY", 
+  "SBIN", "BHARTIARTL", "ITC", "KOTAKBANK", "L&T", "AXISBANK", "HINDUNILVR", "BAJFINANCE", 
+  "MARUTI", "ASIANPAINT", "TITAN", "TATAMOTORS", "SUNPHARMA", "ULTRACEMCO", "NTPC", "M&M", 
+  "HCLTECH", "ONGC", "POWERGRID", "ADANIENT", "ADANIPORTS", "WIPRO", "COALINDIA", "BAJAJFINSV",
+  "JSWSTEEL", "TATASTEEL", "GRASIM", "TECHM", "INDUSINDBK", "HDFCLIFE", "NESTLEIND", "CIPLA",
+  "ZOMATO", "PAYTM", "LICI", "JIOFIN", "DMART"
+];
 
 const getIndianMarketStatus = (): MarketStatus => {
   const now = new Date();
@@ -36,6 +46,7 @@ const App: React.FC = () => {
   const [chartData, setChartData] = useState<ChartData[]>([]);
   const [marketStatus, setMarketStatus] = useState<MarketStatus>(getIndianMarketStatus());
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
 
   // Load recent searches from localStorage on init
   useEffect(() => {
@@ -88,6 +99,7 @@ const App: React.FC = () => {
 
     setLoading(true);
     setError(null);
+    setShowSuggestions(false);
     
     // Normalize index names for better grounding
     const normalizedQuery = query === 'NIFTY 50' ? 'NIFTY' : query;
@@ -107,6 +119,17 @@ const App: React.FC = () => {
     }
   }, [ticker, addToRecent]);
 
+  const getSuggestions = (input: string) => {
+    if (!input) return [];
+    const upperInput = input.toUpperCase();
+    const allOptions = Array.from(new Set([...recentSearches, ...SUGGESTED_TICKERS]));
+    return allOptions
+        .filter(opt => opt.includes(upperInput) && opt !== upperInput)
+        .slice(0, 6);
+  };
+
+  const currentSuggestions = getSuggestions(ticker);
+
   useEffect(() => {
     const interval = setInterval(() => setMarketStatus(getIndianMarketStatus()), 60000);
     return () => clearInterval(interval);
@@ -117,6 +140,7 @@ const App: React.FC = () => {
     setTicker('');
     setSources([]);
     setChartData([]);
+    setShowSuggestions(false);
   };
 
   const RecentSearchesBar = () => {
@@ -169,7 +193,7 @@ const App: React.FC = () => {
             <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">NIFTY 50</span>
             <ArrowUpRight className="w-4 h-4 text-emerald-400" />
           </div>
-          <div className="text-3xl font-black mb-1">24,367.90</div>
+          <AnimatedNumber value={24367.90} className="text-3xl font-black mb-1 block" />
           <div className="text-emerald-400 text-xs font-bold">+1.24% (+298.50)</div>
           <div className="mt-4 text-[9px] text-slate-600 font-bold uppercase tracking-tight opacity-0 group-hover:opacity-100 transition-opacity">Click for Analysis</div>
         </div>
@@ -182,7 +206,7 @@ const App: React.FC = () => {
             <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">SENSEX</span>
             <ArrowUpRight className="w-4 h-4 text-emerald-400" />
           </div>
-          <div className="text-3xl font-black mb-1">80,109.85</div>
+          <AnimatedNumber value={80109.85} className="text-3xl font-black mb-1 block" />
           <div className="text-emerald-400 text-xs font-bold">+1.18% (+932.12)</div>
           <div className="mt-4 text-[9px] text-slate-600 font-bold uppercase tracking-tight opacity-0 group-hover:opacity-100 transition-opacity">Click for Analysis</div>
         </div>
@@ -237,7 +261,9 @@ const App: React.FC = () => {
       <div className="flex-1 h-6 bg-slate-800 rounded-lg overflow-hidden border border-slate-700/50 shadow-inner">
         <div className={`h-full ${colorClass} transition-all duration-1000 ease-out`} style={{ width: `${percentage}%` }}></div>
       </div>
-      <span className="w-10 text-[10px] font-black text-slate-500 text-right">{percentage}%</span>
+      <div className="w-10 text-[10px] font-black text-slate-500 text-right">
+        <AnimatedNumber value={percentage} precision={0} duration={1000} isInteger />%
+      </div>
     </div>
   );
 
@@ -254,16 +280,43 @@ const App: React.FC = () => {
             </h1>
           </div>
 
-          <form onSubmit={(e) => { e.preventDefault(); handleSearch(); }} className="flex-1 max-w-md mx-8 hidden sm:block">
-            <div className="relative group">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 group-focus-within:text-indigo-400 transition-colors" />
+          <form onSubmit={(e) => { e.preventDefault(); handleSearch(); }} className="flex-1 max-w-md mx-8 hidden sm:block relative">
+            <div className="relative group w-full">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 group-focus-within:text-indigo-400 transition-colors pointer-events-none" />
               <input
                 type="text"
                 value={ticker}
-                onChange={(e) => setTicker(e.target.value)}
+                onChange={(e) => {
+                  setTicker(e.target.value);
+                  setShowSuggestions(true);
+                }}
+                onFocus={() => setShowSuggestions(true)}
+                onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
                 placeholder="Search NSE/BSE..."
-                className="w-full bg-slate-900 border border-slate-800 rounded-full py-2 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all"
+                className="w-full bg-slate-900 border border-slate-800 rounded-full py-2 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all placeholder:text-slate-600 font-medium"
+                autoComplete="off"
               />
+              
+              {/* Suggestion Dropdown */}
+              {showSuggestions && currentSuggestions.length > 0 && (
+                <div className="absolute top-full left-0 right-0 mt-2 bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl overflow-hidden z-50">
+                  {currentSuggestions.map((s) => (
+                    <div
+                      key={s}
+                      className="px-4 py-3 hover:bg-indigo-600/20 cursor-pointer text-xs font-bold text-slate-300 hover:text-white flex items-center justify-between transition-colors border-b border-slate-800/50 last:border-0"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        setTicker(s);
+                        handleSearch(s);
+                        setShowSuggestions(false);
+                      }}
+                    >
+                      <span className="tracking-wide">{s}</span>
+                      <ChevronRight className="w-3 h-3 text-slate-600 group-hover:text-indigo-400" />
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </form>
 
@@ -306,16 +359,37 @@ const App: React.FC = () => {
                     <div className="space-y-1">
                       <div className="flex items-center justify-end gap-3">
                         <span className="text-[10px] font-black text-slate-500 uppercase">NSE:</span>
-                        <span className="text-3xl font-black">₹{analysis.nsePrice?.toLocaleString('en-IN')}</span>
+                        <AnimatedNumber 
+                          value={analysis.nsePrice || 0} 
+                          prefix="₹" 
+                          className="text-3xl font-black" 
+                          duration={2500}
+                        />
                       </div>
                       <div className="flex items-center justify-end gap-3">
                         <span className="text-[10px] font-black text-slate-500 uppercase">BSE:</span>
-                        <span className="text-3xl font-black">₹{analysis.bsePrice?.toLocaleString('en-IN')}</span>
+                        <AnimatedNumber 
+                          value={analysis.bsePrice || 0} 
+                          prefix="₹" 
+                          className="text-3xl font-black" 
+                          duration={2500}
+                        />
                       </div>
                     </div>
                     <div className={`flex items-center justify-end gap-2 font-black text-xl ${analysis.priceChange && analysis.priceChange >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                       {analysis.priceChange && analysis.priceChange >= 0 ? '▲' : '▼'}
-                      {Math.abs(analysis.priceChange || 0).toFixed(2)} ({analysis.priceChangePercent?.toFixed(2)}%)
+                      <AnimatedNumber 
+                        value={Math.abs(analysis.priceChange || 0)} 
+                        className="" 
+                        duration={2000}
+                      />
+                      {' '}(
+                      <AnimatedNumber 
+                        value={analysis.priceChangePercent || 0} 
+                        className="" 
+                        duration={2000}
+                      />
+                      %)
                     </div>
                   </div>
                 </div>
