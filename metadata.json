@@ -1,5 +1,5 @@
 {
-  "name": "Sentix India: AI Market Intelligence",
+  "name": "Stock Sense: AI Market Intelligence",
   "description": "A powerful Indian stock market sentiment engine using Gemini 3 and Real-time Search Grounding for NSE/BSE intelligence.",
   "requestFramePermissions": []
 }

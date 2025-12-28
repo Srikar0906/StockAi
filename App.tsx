@@ -39,7 +39,7 @@ const App: React.FC = () => {
 
   // Load recent searches from localStorage on init
   useEffect(() => {
-    const saved = localStorage.getItem('sentix_recent_searches');
+    const saved = localStorage.getItem('stocksense_recent_searches');
     if (saved) {
       try {
         setRecentSearches(JSON.parse(saved));
@@ -53,14 +53,14 @@ const App: React.FC = () => {
     setRecentSearches(prev => {
       const filtered = prev.filter(t => t !== newTicker);
       const updated = [newTicker, ...filtered].slice(0, 6);
-      localStorage.setItem('sentix_recent_searches', JSON.stringify(updated));
+      localStorage.setItem('stocksense_recent_searches', JSON.stringify(updated));
       return updated;
     });
   }, []);
 
   const clearRecent = () => {
     setRecentSearches([]);
-    localStorage.removeItem('sentix_recent_searches');
+    localStorage.removeItem('stocksense_recent_searches');
   };
 
   const generateMockChart = (basePrice: number) => {
@@ -83,19 +83,25 @@ const App: React.FC = () => {
   };
 
   const handleSearch = useCallback(async (searchTicker: string = ticker) => {
-    if (!searchTicker.trim()) return;
+    const query = searchTicker.trim().toUpperCase();
+    if (!query) return;
+
     setLoading(true);
     setError(null);
-    const upperTicker = searchTicker.toUpperCase();
+    
+    // Normalize index names for better grounding
+    const normalizedQuery = query === 'NIFTY 50' ? 'NIFTY' : query;
+
     try {
-      const { analysis, sources } = await analyzeSentiment(upperTicker);
+      const { analysis, sources } = await analyzeSentiment(normalizedQuery);
       setAnalysis(analysis);
       setSources(sources);
       generateMockChart(analysis.nsePrice || 1000);
-      addToRecent(upperTicker);
-      setTicker(upperTicker);
+      addToRecent(query);
+      setTicker(query);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err: any) {
-      setError('Failed to fetch data. Please try again.');
+      setError('Market Intelligence sync failed. Please check ticker and try again.');
     } finally {
       setLoading(false);
     }
@@ -155,45 +161,68 @@ const App: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-slate-900/50 border border-slate-800 p-6 rounded-3xl group hover:border-indigo-500/30 transition-all">
+        <div 
+          onClick={() => handleSearch('NIFTY 50')}
+          className="bg-slate-900/50 border border-slate-800 p-6 rounded-3xl group hover:border-indigo-500/50 hover:bg-slate-900 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer shadow-lg hover:shadow-indigo-500/10"
+        >
           <div className="flex justify-between items-start mb-4">
             <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">NIFTY 50</span>
             <ArrowUpRight className="w-4 h-4 text-emerald-400" />
           </div>
           <div className="text-3xl font-black mb-1">24,367.90</div>
           <div className="text-emerald-400 text-xs font-bold">+1.24% (+298.50)</div>
+          <div className="mt-4 text-[9px] text-slate-600 font-bold uppercase tracking-tight opacity-0 group-hover:opacity-100 transition-opacity">Click for Analysis</div>
         </div>
-        <div className="bg-slate-900/50 border border-slate-800 p-6 rounded-3xl group hover:border-indigo-500/30 transition-all">
+
+        <div 
+          onClick={() => handleSearch('SENSEX')}
+          className="bg-slate-900/50 border border-slate-800 p-6 rounded-3xl group hover:border-indigo-500/50 hover:bg-slate-900 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer shadow-lg hover:shadow-indigo-500/10"
+        >
           <div className="flex justify-between items-start mb-4">
             <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">SENSEX</span>
             <ArrowUpRight className="w-4 h-4 text-emerald-400" />
           </div>
           <div className="text-3xl font-black mb-1">80,109.85</div>
           <div className="text-emerald-400 text-xs font-bold">+1.18% (+932.12)</div>
+          <div className="mt-4 text-[9px] text-slate-600 font-bold uppercase tracking-tight opacity-0 group-hover:opacity-100 transition-opacity">Click for Analysis</div>
         </div>
-        <div className="bg-slate-900/50 border border-slate-800 p-6 rounded-3xl group hover:border-indigo-500/30 transition-all">
+
+        <div 
+          onClick={() => handleSearch('HDFCBANK')}
+          className="bg-slate-900/50 border border-slate-800 p-6 rounded-3xl group hover:border-rose-500/30 hover:bg-slate-900 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer shadow-lg hover:shadow-rose-500/10"
+        >
           <div className="flex justify-between items-start mb-4">
             <span className="text-[10px] font-black text-rose-400 uppercase tracking-widest">TOP LOSER</span>
             <ArrowDownRight className="w-4 h-4 text-rose-400" />
           </div>
           <div className="text-3xl font-black mb-1">HDFCBANK</div>
           <div className="text-rose-400 text-xs font-bold">-0.85% (₹1,654.20)</div>
+          <div className="mt-4 text-[9px] text-slate-600 font-bold uppercase tracking-tight opacity-0 group-hover:opacity-100 transition-opacity">Click for Analysis</div>
         </div>
-        <div className="bg-slate-900/50 border border-slate-800 p-6 rounded-3xl group hover:border-indigo-500/30 transition-all">
+
+        <div 
+          onClick={() => handleSearch('ADANIENT')}
+          className="bg-slate-900/50 border border-slate-800 p-6 rounded-3xl group hover:border-emerald-500/30 hover:bg-slate-900 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer shadow-lg hover:shadow-emerald-500/10"
+        >
           <div className="flex justify-between items-start mb-4">
             <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">TOP GAINER</span>
             <ArrowUpRight className="w-4 h-4 text-emerald-400" />
           </div>
           <div className="text-3xl font-black mb-1">ADANIENT</div>
           <div className="text-emerald-400 text-xs font-bold">+4.32% (₹3,120.45)</div>
+          <div className="mt-4 text-[9px] text-slate-600 font-bold uppercase tracking-tight opacity-0 group-hover:opacity-100 transition-opacity">Click for Analysis</div>
         </div>
       </div>
 
       <div className="bg-indigo-600/10 border border-indigo-500/20 p-8 rounded-[3rem] text-center">
-        <h3 className="text-xl font-black mb-4 uppercase tracking-tight">Search for any Indian Stock</h3>
+        <h3 className="text-xl font-black mb-4 uppercase tracking-tight">Quick Ticker Access</h3>
         <div className="flex flex-wrap justify-center gap-3">
           {POPULAR_TICKERS.map(t => (
-            <button key={t} onClick={() => handleSearch(t)} className="px-6 py-2 bg-slate-900 border border-slate-800 rounded-full text-xs font-black uppercase tracking-widest hover:bg-indigo-600 hover:border-indigo-500 transition-all">
+            <button 
+              key={t} 
+              onClick={() => handleSearch(t)} 
+              className="px-6 py-2 bg-slate-900 border border-slate-800 rounded-full text-xs font-black uppercase tracking-widest hover:bg-indigo-600 hover:border-indigo-500 hover:scale-105 active:scale-95 transition-all"
+            >
               {t}
             </button>
           ))}
@@ -205,7 +234,7 @@ const App: React.FC = () => {
   const SentimentBar = ({ label, percentage, colorClass }: { label: string, percentage: number, colorClass: string }) => (
     <div className="flex items-center gap-4 w-full">
       <span className="w-20 text-xs font-bold text-slate-400 uppercase">{label}</span>
-      <div className="flex-1 h-6 bg-slate-800 rounded-lg overflow-hidden border border-slate-700/50">
+      <div className="flex-1 h-6 bg-slate-800 rounded-lg overflow-hidden border border-slate-700/50 shadow-inner">
         <div className={`h-full ${colorClass} transition-all duration-1000 ease-out`} style={{ width: `${percentage}%` }}></div>
       </div>
       <span className="w-10 text-[10px] font-black text-slate-500 text-right">{percentage}%</span>
@@ -221,7 +250,7 @@ const App: React.FC = () => {
               <BarChart3 className="text-white w-5 h-5" />
             </div>
             <h1 className="text-xl font-black tracking-tighter bg-gradient-to-r from-white to-slate-500 bg-clip-text text-transparent">
-              SENTIX INDIA
+              STOCK SENSE
             </h1>
           </div>
 
@@ -363,7 +392,7 @@ const App: React.FC = () => {
 
       <footer className="border-t border-slate-900 py-16 bg-slate-950">
         <div className="max-w-7xl mx-auto px-4 flex flex-col items-center">
-          <p className="text-slate-800 text-[10px] font-black uppercase tracking-[0.5em] mb-4">Intelligence Engine • Sentix India</p>
+          <p className="text-slate-800 text-[10px] font-black uppercase tracking-[0.5em] mb-4">Intelligence Engine • Stock Sense</p>
           <div className="flex gap-10 opacity-40 grayscale hover:grayscale-0 transition-all">
             {['NSE', 'BSE', 'GIFT NIFTY', 'SEBI'].map(b => (
               <span key={b} className="text-[9px] font-black text-slate-700">{b}</span>
