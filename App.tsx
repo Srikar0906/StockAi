@@ -1,6 +1,6 @@
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Search, TrendingUp, TrendingDown, Info, ExternalLink, AlertCircle, RefreshCw, BarChart3, Globe, Clock, ArrowUpRight, ArrowDownRight, Newspaper, History, X, ChevronRight } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { Search, TrendingUp, TrendingDown, Info, ExternalLink, AlertCircle, RefreshCw, BarChart3, Globe, Clock, ArrowUpRight, ArrowDownRight, Newspaper, History, X, ChevronRight, Star, Calendar, ArrowUp, ArrowDown } from 'lucide-react';
 import { analyzeSentiment } from './services/geminiService';
 import { SentimentAnalysis, GroundingSource, ChartData, MarketStatus } from './types';
 import StockChart from './components/StockChart';
@@ -15,6 +15,27 @@ const SUGGESTED_TICKERS = [
   "HCLTECH", "ONGC", "POWERGRID", "ADANIENT", "ADANIPORTS", "WIPRO", "COALINDIA", "BAJAJFINSV",
   "JSWSTEEL", "TATASTEEL", "GRASIM", "TECHM", "INDUSINDBK", "HDFCLIFE", "NESTLEIND", "CIPLA",
   "ZOMATO", "PAYTM", "LICI", "JIOFIN", "DMART"
+];
+
+const MARKET_HOLIDAYS = [
+  { date: '2024-11-01', day: 'Friday', name: 'Diwali Laxmi Pujan' },
+  { date: '2024-11-15', day: 'Friday', name: 'Gurunanak Jayanti' },
+  { date: '2024-12-25', day: 'Wednesday', name: 'Christmas' },
+  { date: '2025-01-26', day: 'Sunday', name: 'Republic Day' },
+  { date: '2025-02-26', day: 'Wednesday', name: 'Mahashivratri' },
+  { date: '2025-03-14', day: 'Friday', name: 'Holi' },
+  { date: '2025-03-31', day: 'Monday', name: 'Id-Ul-Fitr (Ramzan Id)' },
+  { date: '2025-04-10', day: 'Thursday', name: 'Mahavir Jayanti' },
+  { date: '2025-04-14', day: 'Monday', name: 'Dr. Baba Saheb Ambedkar Jayanti' },
+  { date: '2025-04-18', day: 'Friday', name: 'Good Friday' },
+  { date: '2025-05-01', day: 'Thursday', name: 'Maharashtra Day' },
+  { date: '2025-08-15', day: 'Friday', name: 'Independence Day' },
+  { date: '2025-08-27', day: 'Wednesday', name: 'Ganesh Chaturthi' },
+  { date: '2025-10-02', day: 'Thursday', name: 'Mahatma Gandhi Jayanti' },
+  { date: '2025-10-21', day: 'Tuesday', name: 'Diwali Laxmi Pujan' },
+  { date: '2025-10-22', day: 'Wednesday', name: 'Diwali Balipratipada' },
+  { date: '2025-11-05', day: 'Wednesday', name: 'Gurunanak Jayanti' },
+  { date: '2025-12-25', day: 'Thursday', name: 'Christmas' }
 ];
 
 const getIndianMarketStatus = (): MarketStatus => {
@@ -46,17 +67,28 @@ const App: React.FC = () => {
   const [chartData, setChartData] = useState<ChartData[]>([]);
   const [marketStatus, setMarketStatus] = useState<MarketStatus>(getIndianMarketStatus());
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
+  const [watchlist, setWatchlist] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [showHolidays, setShowHolidays] = useState(false);
+  
+  // News filtering and sorting
+  const [newsFilter, setNewsFilter] = useState('');
+  const [newsSortOrder, setNewsSortOrder] = useState<'newest' | 'oldest'>('newest');
 
-  // Load recent searches from localStorage on init
+  // Load persistence
   useEffect(() => {
-    const saved = localStorage.getItem('stocksense_recent_searches');
-    if (saved) {
+    const savedRecent = localStorage.getItem('stocksense_recent_searches');
+    if (savedRecent) {
       try {
-        setRecentSearches(JSON.parse(saved));
-      } catch (e) {
-        console.error("Failed to parse recent searches", e);
-      }
+        setRecentSearches(JSON.parse(savedRecent));
+      } catch (e) { console.error("Failed to parse recent searches", e); }
+    }
+
+    const savedWatchlist = localStorage.getItem('stocksense_watchlist');
+    if (savedWatchlist) {
+      try {
+        setWatchlist(JSON.parse(savedWatchlist));
+      } catch (e) { console.error("Failed to parse watchlist", e); }
     }
   }, []);
 
@@ -74,15 +106,27 @@ const App: React.FC = () => {
     localStorage.removeItem('stocksense_recent_searches');
   };
 
+  const toggleWatchlist = (tickerToToggle: string) => {
+    setWatchlist(prev => {
+      const exists = prev.includes(tickerToToggle);
+      const updated = exists 
+        ? prev.filter(t => t !== tickerToToggle)
+        : [...prev, tickerToToggle];
+      localStorage.setItem('stocksense_watchlist', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
   const generateMockChart = (basePrice: number) => {
     const data: ChartData[] = [];
     let currentPrice = basePrice * 0.99;
     const startTime = 9 * 60 + 15;
     const endTime = 15 * 60 + 30;
-    for (let t = startTime; t <= endTime; t += 15) {
+    // Generate data every 5 minutes for better indicator calculations
+    for (let t = startTime; t <= endTime; t += 5) {
       const h = Math.floor(t / 60);
       const m = t % 60;
-      currentPrice += (Math.random() - 0.45) * (basePrice * 0.005);
+      currentPrice += (Math.random() - 0.48) * (basePrice * 0.003); // Slight upward bias
       data.push({
         time: `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`,
         price: Number(currentPrice.toFixed(2)),
@@ -100,6 +144,10 @@ const App: React.FC = () => {
     setLoading(true);
     setError(null);
     setShowSuggestions(false);
+    
+    // Reset filters
+    setNewsFilter('');
+    setNewsSortOrder('newest');
     
     // Normalize index names for better grounding
     const normalizedQuery = query === 'NIFTY 50' ? 'NIFTY' : query;
@@ -119,6 +167,19 @@ const App: React.FC = () => {
     }
   }, [ticker, addToRecent]);
 
+  const filteredNews = useMemo(() => {
+    let result = [...sources];
+    if (newsFilter.trim()) {
+      const lower = newsFilter.toLowerCase();
+      result = result.filter(s => s.title.toLowerCase().includes(lower));
+    }
+    // Assuming API returns results in order of relevance/recency (newest first)
+    if (newsSortOrder === 'oldest') {
+      result.reverse();
+    }
+    return result;
+  }, [sources, newsFilter, newsSortOrder]);
+
   const getSuggestions = (input: string) => {
     if (!input) return [];
     const upperInput = input.toUpperCase();
@@ -128,7 +189,14 @@ const App: React.FC = () => {
         .slice(0, 6);
   };
 
+  const getUpcomingHolidays = () => {
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    return MARKET_HOLIDAYS.filter(h => new Date(h.date) >= today);
+  };
+
   const currentSuggestions = getSuggestions(ticker);
+  const upcomingHolidays = getUpcomingHolidays();
 
   useEffect(() => {
     const interval = setInterval(() => setMarketStatus(getIndianMarketStatus()), 60000);
@@ -141,6 +209,8 @@ const App: React.FC = () => {
     setSources([]);
     setChartData([]);
     setShowSuggestions(false);
+    setNewsFilter('');
+    setNewsSortOrder('newest');
   };
 
   const RecentSearchesBar = () => {
@@ -174,7 +244,7 @@ const App: React.FC = () => {
   };
 
   const HomeView = () => (
-    <div className="space-y-12 animate-in fade-in duration-700">
+    <div className="space-y-12 animate-slide-up">
       <div className="text-center py-12">
         <h2 className="text-5xl font-black mb-4 bg-gradient-to-r from-white via-indigo-400 to-slate-500 bg-clip-text text-transparent tracking-tighter">
           India's Smartest Sentiment Engine
@@ -238,6 +308,28 @@ const App: React.FC = () => {
         </div>
       </div>
 
+      {watchlist.length > 0 && (
+        <div className="bg-slate-900/30 border border-slate-800 p-8 rounded-[3rem] text-center">
+          <h3 className="text-xl font-black mb-6 uppercase tracking-tight text-amber-400 flex items-center justify-center gap-2">
+            <Star className="w-5 h-5 fill-amber-400" /> Your Watchlist
+          </h3>
+          <div className="flex flex-wrap justify-center gap-3">
+            {watchlist.map(t => (
+              <button 
+                key={t} 
+                onClick={() => handleSearch(t)} 
+                className="group relative px-6 py-3 bg-slate-900 border border-slate-800 rounded-2xl text-sm font-black uppercase tracking-widest hover:bg-slate-800 hover:border-amber-500/50 transition-all shadow-lg hover:shadow-amber-500/10 flex items-center gap-3"
+              >
+                {t}
+                <div onClick={(e) => { e.stopPropagation(); toggleWatchlist(t); }} className="p-1 rounded-full hover:bg-slate-700 text-slate-500 hover:text-rose-400 transition-colors">
+                  <X className="w-3 h-3" />
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="bg-indigo-600/10 border border-indigo-500/20 p-8 rounded-[3rem] text-center">
         <h3 className="text-xl font-black mb-4 uppercase tracking-tight">Quick Ticker Access</h3>
         <div className="flex flex-wrap justify-center gap-3">
@@ -268,7 +360,7 @@ const App: React.FC = () => {
   );
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col relative">
       <header className="sticky top-0 z-50 bg-slate-950/80 backdrop-blur-md border-b border-slate-900">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2 cursor-pointer group" onClick={goHome}>
@@ -320,25 +412,81 @@ const App: React.FC = () => {
             </div>
           </form>
 
-          <div className={`flex items-center gap-2 px-3 py-1 rounded-full border ${marketStatus.isOpen ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-slate-900 border-slate-800'}`}>
-            <div className={`w-2 h-2 rounded-full ${marketStatus.isOpen ? 'bg-emerald-500 animate-pulse' : 'bg-slate-500'}`}></div>
-            <span className={`text-[10px] font-bold uppercase tracking-widest ${marketStatus.isOpen ? 'text-emerald-400' : 'text-slate-500'}`}>
-              {marketStatus.status}
-            </span>
+          <div className="flex items-center gap-3">
+            <button 
+                onClick={() => setShowHolidays(true)}
+                className="p-2 rounded-full hover:bg-slate-900 text-slate-400 hover:text-indigo-400 transition-colors border border-transparent hover:border-slate-800"
+                title="Market Holidays"
+            >
+                <Calendar className="w-5 h-5" />
+            </button>
+
+            <div className={`flex items-center gap-2 px-3 py-1 rounded-full border ${marketStatus.isOpen ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-slate-900 border-slate-800'}`}>
+                <div className={`w-2 h-2 rounded-full ${marketStatus.isOpen ? 'bg-emerald-500 animate-pulse' : 'bg-slate-500'}`}></div>
+                <span className={`text-[10px] font-bold uppercase tracking-widest ${marketStatus.isOpen ? 'text-emerald-400' : 'text-slate-500'}`}>
+                {marketStatus.status}
+                </span>
+            </div>
           </div>
         </div>
       </header>
+
+      {/* Holidays Modal */}
+      {showHolidays && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in">
+            <div className="bg-slate-900 border border-slate-700/50 rounded-3xl max-w-md w-full shadow-2xl relative overflow-hidden flex flex-col max-h-[80vh] animate-slide-up">
+                <div className="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-900/50 backdrop-blur-sm sticky top-0 z-10">
+                    <h3 className="text-lg font-black flex items-center gap-3 text-white">
+                        <Calendar className="w-5 h-5 text-indigo-500" />
+                        Market Holidays
+                    </h3>
+                    <button 
+                        onClick={() => setShowHolidays(false)}
+                        className="p-1 rounded-full hover:bg-slate-800 text-slate-500 hover:text-white transition-colors"
+                    >
+                        <X className="w-5 h-5" />
+                    </button>
+                </div>
+                
+                <div className="p-6 overflow-y-auto no-scrollbar space-y-4">
+                    {upcomingHolidays.length > 0 ? (
+                        upcomingHolidays.map((holiday, idx) => (
+                            <div key={idx} className="flex items-center gap-4 p-4 rounded-2xl bg-slate-950/50 border border-slate-800/50 hover:border-indigo-500/30 transition-colors group">
+                                <div className="bg-indigo-900/20 border border-indigo-500/20 rounded-xl p-3 text-center min-w-[70px]">
+                                    <div className="text-[10px] font-bold uppercase text-indigo-400">{new Date(holiday.date).toLocaleString('default', { month: 'short' })}</div>
+                                    <div className="text-xl font-black text-white">{new Date(holiday.date).getDate()}</div>
+                                </div>
+                                <div>
+                                    <div className="font-bold text-slate-200 group-hover:text-indigo-300 transition-colors">{holiday.name}</div>
+                                    <div className="text-xs text-slate-500 font-medium">{holiday.day}</div>
+                                </div>
+                            </div>
+                        ))
+                    ) : (
+                        <div className="text-center py-10 text-slate-500 text-sm">No upcoming holidays found for this year.</div>
+                    )}
+                </div>
+                
+                <div className="p-4 bg-slate-900/50 border-t border-slate-800 text-center text-[10px] text-slate-600 font-bold uppercase tracking-widest">
+                    Trading Closed on NSE & BSE
+                </div>
+            </div>
+            
+            {/* Backdrop click to close */}
+            <div className="absolute inset-0 -z-10" onClick={() => setShowHolidays(false)} />
+        </div>
+      )}
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full">
         <RecentSearchesBar />
         
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-40">
+          <div className="flex flex-col items-center justify-center py-40 animate-fade-in">
             <div className="w-16 h-16 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin"></div>
             <p className="mt-8 text-slate-400 font-black uppercase tracking-[0.3em] text-[10px] animate-pulse">Syncing Dalal Street Intel...</p>
           </div>
         ) : error ? (
-          <div className="bg-rose-500/10 border border-rose-500/20 rounded-3xl p-10 text-center max-w-md mx-auto">
+          <div className="bg-rose-500/10 border border-rose-500/20 rounded-3xl p-10 text-center max-w-md mx-auto animate-fade-in">
             <AlertCircle className="w-12 h-12 text-rose-500 mx-auto mb-4" />
             <h2 className="text-xl font-bold mb-2">Sync Failed</h2>
             <p className="text-slate-400 mb-6 text-sm">{error}</p>
@@ -347,12 +495,21 @@ const App: React.FC = () => {
             </button>
           </div>
         ) : analysis ? (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+          <div key={analysis.ticker} className="grid grid-cols-1 lg:grid-cols-12 gap-8 animate-slide-up">
             <div className="lg:col-span-8 space-y-8">
               <div className="bg-slate-900/40 border border-slate-800 rounded-[3rem] p-8 md:p-10">
                 <div className="flex flex-col md:flex-row justify-between items-start gap-8 mb-12">
                   <div className="space-y-2">
-                    <h2 className="text-5xl font-black tracking-tighter uppercase">{analysis.ticker}</h2>
+                    <div className="flex items-center gap-4">
+                      <h2 className="text-5xl font-black tracking-tighter uppercase">{analysis.ticker}</h2>
+                      <button 
+                        onClick={() => toggleWatchlist(analysis.ticker)}
+                        className="p-3 rounded-full bg-slate-800 border border-slate-700 hover:bg-slate-700 hover:border-slate-600 transition-all group shadow-lg"
+                        title={watchlist.includes(analysis.ticker) ? "Remove from Watchlist" : "Add to Watchlist"}
+                      >
+                        <Star className={`w-6 h-6 transition-all duration-300 ${watchlist.includes(analysis.ticker) ? 'fill-amber-400 text-amber-400 scale-110' : 'text-slate-500 group-hover:text-amber-400 group-hover:scale-110'}`} />
+                      </button>
+                    </div>
                     <p className="text-slate-400 text-xl font-semibold opacity-80">{analysis.name}</p>
                   </div>
                   <div className="text-right space-y-4">
@@ -404,7 +561,7 @@ const App: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="h-[350px] w-full">
+                  <div className="h-[500px] w-full">
                     <StockChart data={chartData} ticker={analysis.ticker} />
                   </div>
                 </div>
@@ -436,21 +593,49 @@ const App: React.FC = () => {
 
             <div className="lg:col-span-4 space-y-8">
               <div className="bg-slate-900/40 border border-slate-800 rounded-[2.5rem] p-8 flex flex-col h-full">
-                <h3 className="text-xl font-black mb-8 flex items-center gap-2">
+                <h3 className="text-xl font-black mb-6 flex items-center gap-2">
                    <Newspaper className="w-5 h-5 text-indigo-400" /> Latest Headlines
                 </h3>
+                
+                {/* News Filtering and Sorting Controls */}
+                <div className="flex gap-2 mb-6">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
+                    <input 
+                      type="text" 
+                      value={newsFilter}
+                      onChange={(e) => setNewsFilter(e.target.value)}
+                      placeholder="Filter news..." 
+                      className="w-full bg-slate-950/50 border border-slate-800 rounded-xl py-2 pl-9 pr-3 text-xs focus:outline-none focus:border-indigo-500/50 transition-colors text-slate-300 placeholder:text-slate-600 font-medium"
+                    />
+                  </div>
+                  <button 
+                    onClick={() => setNewsSortOrder(prev => prev === 'newest' ? 'oldest' : 'newest')}
+                    className="px-3 py-2 bg-slate-950/50 border border-slate-800 rounded-xl hover:bg-slate-900 transition-colors text-slate-400 hover:text-indigo-400 flex items-center gap-2"
+                    title={newsSortOrder === 'newest' ? "Sort by Oldest" : "Sort by Newest"}
+                  >
+                    <span className="text-[10px] font-bold uppercase hidden xl:inline">{newsSortOrder === 'newest' ? 'Newest' : 'Oldest'}</span>
+                    {newsSortOrder === 'newest' ? <ArrowDown className="w-3.5 h-3.5" /> : <ArrowUp className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+
                 <div className="space-y-4 flex-1">
-                  {sources.length > 0 ? sources.map((s, i) => (
-                    <a key={i} href={s.uri} target="_blank" className="block p-5 bg-slate-950/40 hover:bg-slate-800 border border-slate-800 rounded-2xl transition-all group">
-                      <div className="flex justify-between items-start gap-4">
-                        <span className="text-xs font-bold text-slate-300 group-hover:text-indigo-400 leading-snug uppercase tracking-tight">{s.title}</span>
-                        <ExternalLink className="w-3.5 h-3.5 text-slate-700 shrink-0 group-hover:text-indigo-400" />
-                      </div>
-                    </a>
-                  )) : (
+                  {sources.length === 0 ? (
                     <div className="text-center py-20 text-slate-600 text-xs font-bold uppercase italic">No news sources found...</div>
+                  ) : filteredNews.length === 0 ? (
+                    <div className="text-center py-20 text-slate-600 text-xs font-bold uppercase italic">No matching headlines found.</div>
+                  ) : (
+                    filteredNews.map((s, i) => (
+                      <a key={i} href={s.uri} target="_blank" className="block p-5 bg-slate-950/40 hover:bg-slate-800 border border-slate-800 rounded-2xl transition-all group">
+                        <div className="flex justify-between items-start gap-4">
+                          <span className="text-xs font-bold text-slate-300 group-hover:text-indigo-400 leading-snug uppercase tracking-tight">{s.title}</span>
+                          <ExternalLink className="w-3.5 h-3.5 text-slate-700 shrink-0 group-hover:text-indigo-400" />
+                        </div>
+                      </a>
+                    ))
                   )}
                 </div>
+
                 <div className="mt-8 p-6 bg-indigo-500/5 border border-indigo-500/10 rounded-3xl">
                   <h4 className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-4">AI Verdict</h4>
                   <div className="text-2xl font-black mb-2 uppercase tracking-tighter">{analysis.recommendation}</div>

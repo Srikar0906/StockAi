@@ -33,6 +33,25 @@
       transition: stroke-dashoffset 1s ease-out;
     }
 
+    /* Animation Utilities */
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .animate-fade-in {
+      animation: fadeIn 0.4s ease-out forwards;
+    }
+    
+    .animate-slide-up {
+      animation: slideUp 0.5s ease-out forwards;
+    }
+
     /* Suggestion Dropdown Styles */
     #suggestions-list {
       max-height: 300px;
